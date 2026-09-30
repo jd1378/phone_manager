@@ -83,6 +83,7 @@ export function fakeDevices(overrides: Partial<DeviceRegistry> = {}): DeviceRegi
     list: () => Promise.resolve([]),
     info: () => Promise.resolve(deviceInfo),
     watch: () => {},
+    discover: () => Promise.resolve([]),
     pair: unused,
     connect: unused,
     disconnect: unused,

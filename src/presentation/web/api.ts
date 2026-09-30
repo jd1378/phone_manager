@@ -5,6 +5,7 @@ import type {
   AppDetails,
   Device,
   DeviceInfo,
+  DiscoveredService,
   LibraryEntry,
   Settings,
   Upload,
@@ -89,6 +90,7 @@ export const api = {
   directories: (path: string) =>
     request<DirectoryListing>("GET", `/api/fs/dirs?path=${encodeURIComponent(path)}`),
   createDirectory: (path: string) => request("POST", "/api/fs/dirs", { path }),
+  discover: () => request<DiscoveredService[]>("GET", "/api/adb/discover"),
   pair: (host: string, port: number, code: string) =>
     request<{ message: string }>("POST", "/api/adb/pair", { host, port, code }),
   connect: (host: string, port: number) =>

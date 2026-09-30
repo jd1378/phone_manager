@@ -1,11 +1,13 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
+import { wirelessError } from "../src/data/adb/adb_devices.ts";
 import {
   parseDevices,
   parseDf,
   parseHelperInfo,
   parseHelperList,
   parseLogcatLine,
+  parseMdnsServices,
   parsePackageList,
   parseProcessIds,
   parseUsers,
@@ -199,4 +201,41 @@ Deno.test("settings: defaults, validation, persistence", async () => {
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("adb mdns services: pairing and connect entries, IPv6, junk ignored", () => {
+  assertEquals(
+    parseMdnsServices(`List of discovered mdns services
+adb-6PO7LJKJCY4XDUGA-HmopAu	_adb-tls-connect._tcp	192.168.8.12:33083
+adb-6PO7LJKJCY4XDUGA-Xk2p	_adb-tls-pairing._tcp.	192.168.8.12:37015
+adb-X	_adb-tls-connect._tcp	[fe80::1%wlan0]:40001
+adb-Y	_adb._tcp	192.168.8.13:5555
+`),
+    [
+      { name: "adb-6PO7LJKJCY4XDUGA-HmopAu", kind: "connect", host: "192.168.8.12", port: 33083 },
+      { name: "adb-6PO7LJKJCY4XDUGA-Xk2p", kind: "pairing", host: "192.168.8.12", port: 37015 },
+      { name: "adb-X", kind: "connect", host: "fe80::1%wlan0", port: 40001 },
+    ],
+  );
+  assertEquals(parseMdnsServices("ERROR: mdns discovery disabled"), []);
+});
+
+Deno.test("wireless errors name the likely cause and keep adb's text as detail", () => {
+  const handshake = wirelessError("pair", "error: protocol fault (couldn't read status message): Success");
+  assert(handshake.message.includes("'Pair device with pairing code' popup"));
+  assertEquals(handshake.detail, "error: protocol fault (couldn't read status message): Success");
+  assert(
+    wirelessError("pair", "Failed: Wrong password or connection was dropped.").message.startsWith(
+      "Wrong pairing code",
+    ),
+  );
+  assert(
+    wirelessError("connect", "failed to authenticate to 192.168.8.12:33083").message.includes("not paired"),
+  );
+  assert(
+    wirelessError("connect", "failed to connect to '1.2.3.4:5': Connection refused").message.includes(
+      "did not answer",
+    ),
+  );
+  assertEquals(wirelessError("connect", "something new").message, "something new");
 });

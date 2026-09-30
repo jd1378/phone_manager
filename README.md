@@ -5,8 +5,9 @@ their APKs, install APKs by drag and drop, and watch an app's logcat.
 
 ## Requirements
 
-- `adb` on your `PATH` ([Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)).
-  Phone Manager exits with a message if it is missing.
+- `adb` on your `PATH`
+  ([Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)). Phone Manager
+  exits with a message if it is missing.
 - A phone with USB debugging enabled (or wireless debugging). Android 9 or newer.
 - To run from source: [Deno](https://deno.com) 2.x.
 
@@ -48,9 +49,9 @@ address does not work; use the printed link.
 ## The phone helper
 
 `pm` cannot report app names, icons, sizes, signing certificates or permission types. For those, Phone Manager
-pushes a small helper (`src/data/adb/phone-helper.dex`, about 10 KB) to `/data/local/tmp` on the phone and runs
-it with `app_process` as the adb shell user, the same technique scrcpy uses. The helper is not installed as an
-app, has no more rights than `adb shell`, and exits once it has printed its output.
+pushes a small helper (`src/data/adb/phone-helper.dex`, about 10 KB) to `/data/local/tmp` on the phone and
+runs it with `app_process` as the adb shell user, the same technique scrcpy uses. The helper is not installed
+as an app, has no more rights than `adb shell`, and exits once it has printed its output.
 
 It runs only when you load names and icons, open an app's details, or back up an app. The plain app list uses
 `pm` only. To remove it from a phone: `adb shell rm /data/local/tmp/phone-manager-helper-*.dex`.
@@ -64,12 +65,14 @@ It runs only when you load names and icons, open an app's details, or back up an
 ```
 
 The folder is the source of truth: copy, move or delete entries by hand as you like. The backup folder is set
-in Settings. Settings are stored in `~/.config/phone-manager/settings.json` (Linux), `~/Library/Application
+in Settings. Settings are stored in `~/.config/phone-manager/settings.json` (Linux),
+`~/Library/Application
 Support/phone-manager` (macOS) or `%APPDATA%\phone-manager` (Windows).
 
 ## Limitations
 
-- Only APKs are backed up. App data cannot be read without root, and `adb backup` no longer works for most apps.
+- Only APKs are backed up. App data cannot be read without root, and `adb backup` no longer works for most
+  apps.
 - OBB expansion files inside `.xapk` bundles are not installed.
 - Downgrades usually only work for debuggable apps. Updating an app signed with a different key requires
   uninstalling it first.
@@ -77,10 +80,10 @@ Support/phone-manager` (macOS) or `%APPDATA%\phone-manager` (Windows).
 ## Security
 
 The server listens on 127.0.0.1 only. Because it can install and remove apps, every API request must carry a
-per-run session cookie (HttpOnly, SameSite=Strict) that the browser receives through the printed link, must use
-a `127.0.0.1`/`localhost` Host header (blocking DNS rebinding) and, when the browser sends an Origin, our own
-origin. Everything that ends up in a phone shell command is validated first (package names, permissions, user
-IDs). adb is always run with an argument list, never through a host shell.
+per-run session cookie (HttpOnly, SameSite=Strict) that the browser receives through the printed link, must
+use a `127.0.0.1`/`localhost` Host header (blocking DNS rebinding) and, when the browser sends an Origin, our
+own origin. Everything that ends up in a phone shell command is validated first (package names, permissions,
+user IDs). adb is always run with an argument list, never through a host shell.
 
 ## Development
 

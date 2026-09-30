@@ -18,6 +18,15 @@ export interface Device {
   wireless: boolean;
 }
 
+/** A phone announcing wireless debugging on the local network (mDNS). */
+export interface DiscoveredService {
+  name: string;
+  /** "pairing" while the phone shows its "Pair device with pairing code" popup. */
+  kind: "pairing" | "connect";
+  host: string;
+  port: number;
+}
+
 export interface DeviceUser {
   id: number;
   name: string;

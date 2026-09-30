@@ -1,9 +1,9 @@
 import { AppError } from "../../domain/errors.ts";
-import type { Device, DeviceInfo } from "../../domain/models.ts";
+import type { Device, DeviceInfo, DiscoveredService } from "../../domain/models.ts";
 import type { DeviceRegistry } from "../../domain/ports.ts";
 import { isHost, isPairingCode, isPort, isSerial, requireValid } from "../../domain/validation.ts";
 import type { Adb } from "./adb.ts";
-import { parseBatteryLevel, parseDevices, parseDf, parseUsers } from "./parsers.ts";
+import { parseBatteryLevel, parseDevices, parseDf, parseMdnsServices, parseUsers } from "./parsers.ts";
 
 const SECTION = "__phone_manager_section__";
 const WATCH_DEBOUNCE_MS = 250;
@@ -78,13 +78,16 @@ export class AdbDevices implements DeviceRegistry {
     loop();
   }
 
+  async discover(): Promise<DiscoveredService[]> {
+    const result = await this.adb.run(["mdns", "services"], AbortSignal.timeout(10_000)).catch(() => null);
+    return result?.code === 0 ? parseMdnsServices(result.stdout) : [];
+  }
+
   async pair(host: string, port: number, code: string): Promise<string> {
     requireValid(isPairingCode, code, "pairing code");
     const result = await this.adb.run(["pair", hostPort(host, port), code], AbortSignal.timeout(30_000));
     const text = `${result.stdout}\n${result.stderr}`.trim();
-    if (result.code !== 0 || !/Successfully paired/i.test(text)) {
-      throw new AppError("adb-failed", text.split("\n").at(-1) || "Pairing failed");
-    }
+    if (result.code !== 0 || !/Successfully paired/i.test(text)) throw wirelessError("pair", text);
     return text;
   }
 
@@ -92,7 +95,7 @@ export class AdbDevices implements DeviceRegistry {
     const result = await this.adb.run(["connect", hostPort(host, port)], AbortSignal.timeout(30_000));
     const text = `${result.stdout}\n${result.stderr}`.trim();
     if (result.code !== 0 || !/connected to/i.test(text) || /cannot|failed/i.test(text)) {
-      throw new AppError("adb-failed", text || "Connection failed");
+      throw wirelessError("connect", text);
     }
     return text;
   }
@@ -101,6 +104,25 @@ export class AdbDevices implements DeviceRegistry {
     requireValid(isSerial, serial, "serial");
     await this.adb.run(["disconnect", serial]);
   }
+}
+
+/** adb's pairing and connection errors say little about the usual cause; name it. */
+export function wirelessError(kind: "pair" | "connect", text: string): AppError {
+  let message = text.split("\n").at(-1) || (kind === "pair" ? "Pairing failed" : "Connection failed");
+  if (kind === "pair" && /protocol fault|handshake|unable to start pairing/i.test(text)) {
+    message = "The phone refused the pairing connection. Use the IP address and port from the " +
+      "'Pair device with pairing code' popup (not the one on the Wireless debugging screen), " +
+      "and keep that popup open while pairing.";
+  } else if (kind === "pair" && /wrong password|connection was dropped/i.test(text)) {
+    message = "Wrong pairing code, or the pairing popup was closed. Open it again and use the new code.";
+  } else if (kind === "connect" && /failed to authenticate|unauthorized/i.test(text)) {
+    message = "This computer is not paired with the phone yet. Pair it first with a pairing code.";
+  } else if (kind === "connect" && /refused|no route|timed out|unreachable/i.test(text)) {
+    message = "The phone did not answer at that address. Check the IP address and port on the Wireless " +
+      "debugging screen (the port changes each time wireless debugging is turned on) and that both are " +
+      "on the same network.";
+  }
+  return new AppError("adb-failed", message, text);
 }
 
 function hostPort(host: string, port: number): string {

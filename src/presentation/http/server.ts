@@ -375,6 +375,7 @@ export function createApp(services: Services, security: Security, staticRoot: UR
     return json({ ok: true });
   });
 
+  route("GET", "/api/adb/discover", async () => json(await devices.discover()));
   route("POST", "/api/adb/pair", async (request) => {
     const body = await readJson(request);
     const message = await devices.pair(

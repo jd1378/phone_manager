@@ -6,6 +6,7 @@ import type {
   Device,
   DeviceState,
   DeviceUser,
+  DiscoveredService,
   LogLine,
 } from "../../domain/models.ts";
 import type { HelperApp } from "../../domain/ports.ts";
@@ -50,6 +51,26 @@ export interface PackageLine {
   versionCode: number;
   uid: number | null;
   installer: string | null;
+}
+
+/** `adb mdns services`, e.g. "adb-6PO7LJ-HmopAu\t_adb-tls-connect._tcp\t192.168.8.12:33083" */
+export function parseMdnsServices(output: string): DiscoveredService[] {
+  const services: DiscoveredService[] = [];
+  for (const line of lines(output)) {
+    const match = line.match(/^(\S+)\s+_adb-tls-(pairing|connect)\._tcp\.?\s+(\S+)$/);
+    if (!match) continue;
+    const address = match[3];
+    const colon = address.lastIndexOf(":");
+    const port = Number(address.slice(colon + 1));
+    if (colon <= 0 || !Number.isInteger(port)) continue;
+    services.push({
+      name: match[1],
+      kind: match[2] as DiscoveredService["kind"],
+      host: address.slice(0, colon).replace(/^\[|\]$/g, ""),
+      port,
+    });
+  }
+  return services;
 }
 
 /** `pm list packages -f -U -i --show-versioncode`; field order varies between Android versions. */

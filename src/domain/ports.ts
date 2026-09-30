@@ -8,6 +8,7 @@ import type {
   BackupMetadata,
   Device,
   DeviceInfo,
+  DiscoveredService,
   InstallOptions,
   LibraryEntry,
   LogLine,
@@ -20,6 +21,8 @@ export interface DeviceRegistry {
   info(serial: string): Promise<DeviceInfo>;
   /** Calls onChange whenever devices may have connected, disconnected or changed state. */
   watch(onChange: () => void, signal: AbortSignal): void;
+  /** Phones found through mDNS; empty when discovery is unavailable. */
+  discover(): Promise<DiscoveredService[]>;
   pair(host: string, port: number, code: string): Promise<string>;
   connect(host: string, port: number): Promise<string>;
   disconnect(serial: string): Promise<void>;
