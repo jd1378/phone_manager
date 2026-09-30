@@ -2,7 +2,7 @@
 // Usage: deno task package                    (this machine's platform)
 //        deno task package --all              (every target this host can build)
 //        deno task package linux-x64 windows-x64
-import { dirname, extname, fromFileUrl, join } from "@std/path";
+import { basename, dirname, extname, fromFileUrl, join } from "@std/path";
 import { PERMISSIONS } from "./permissions.ts";
 
 type Os = "linux" | "windows" | "darwin";
@@ -20,7 +20,9 @@ const TARGETS: Record<string, { triple: string; os: Os }> = {
 const OUTPUTS: Record<Os, string[]> = {
   linux: ["phone-manager.AppImage", "phone-manager.deb", "phone-manager.rpm"],
   windows: ["phone-manager.msi"],
-  darwin: ["Phone Manager.dmg"],
+  // No extension: deno desktop writes "Phone Manager.app" (given ".app" it writes ".app.app"). makeDmg
+  // turns it into a .dmg.
+  darwin: ["Phone Manager"],
 };
 
 // Older versions stamp every installer as version 1.0.0 and mangle names containing dots.
@@ -58,15 +60,48 @@ const selected = Deno.args.includes("--all")
   ? named
   : [host!];
 
-async function deno(args: string[]) {
-  const { code } = await new Deno.Command(Deno.execPath(), {
-    args,
-    cwd: root,
-    stdout: "inherit",
-    stderr: "inherit",
-  })
+async function run(command: string, args: string[]) {
+  const { code } = await new Deno.Command(command, { args, cwd: root, stdout: "inherit", stderr: "inherit" })
     .output();
   if (code !== 0) Deno.exit(code);
+}
+const deno = (args: string[]) => run(Deno.execPath(), args);
+
+async function treeSize(path: string): Promise<number> {
+  const info = await Deno.lstat(path);
+  if (!info.isDirectory) return info.size;
+  let total = 0;
+  for await (const entry of Deno.readDir(path)) total += await treeSize(join(path, entry.name));
+  return total;
+}
+
+/**
+ * deno desktop can write a .dmg itself, but its hdiutil call lets hdiutil guess the image size, which
+ * fails with "No space left on device" on GitHub's macOS runners. Size it explicitly instead.
+ */
+async function makeDmg(app: string): Promise<string> {
+  const volume = join(dirname(app), "volume");
+  await Deno.mkdir(volume);
+  await Deno.rename(app, join(volume, basename(app)));
+  await Deno.symlink("/Applications", join(volume, "Applications"));
+  const megabytes = Math.ceil((await treeSize(volume)) / 1_000_000 * 1.2) + 16;
+  const dmg = join(dirname(app), `${basename(app, ".app")}.dmg`);
+  await run("hdiutil", [
+    "create",
+    "-volname",
+    basename(app, ".app"),
+    "-srcfolder",
+    volume,
+    "-fs",
+    "HFS+",
+    "-format",
+    "UDZO",
+    "-size",
+    `${megabytes}m`,
+    "-ov",
+    dmg,
+  ]);
+  return dmg;
 }
 
 await deno(["task", "build:web"]);
@@ -90,9 +125,10 @@ for (const name of selected) {
       staged,
       "src/desktop.ts",
     ]);
-    const final = join(root, "build", `phone-manager-${version}-${name}${extname(output)}`);
+    const artifact = os === "darwin" ? await makeDmg(`${staged}.app`) : staged;
+    const final = join(root, "build", `phone-manager-${version}-${name}${extname(artifact)}`);
     await Deno.remove(final, { recursive: true }).catch(() => {});
-    await Deno.rename(staged, final);
+    await Deno.rename(artifact, final);
     console.log(`Packaged ${final}`);
   }
 }
