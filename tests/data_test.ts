@@ -12,7 +12,7 @@ import {
   parseProcessIds,
   parseUsers,
 } from "../src/data/adb/parsers.ts";
-import { assertCommandSucceeded } from "../src/data/adb/adb.ts";
+import { adbCandidates, assertCommandSucceeded } from "../src/data/adb/adb.ts";
 import { bundleApkEntries, extractBundle, readApkManifest } from "../src/data/apk/apk_reader.ts";
 import { FsBackupLibrary } from "../src/data/fs/fs_library.ts";
 import { JsonSettingsStore } from "../src/data/fs/json_settings.ts";
@@ -238,4 +238,22 @@ Deno.test("wireless errors name the likely cause and keep adb's text as detail",
     ),
   );
   assertEquals(wirelessError("connect", "something new").message, "something new");
+});
+
+Deno.test("adb is looked up on PATH first, then SDK and package manager folders", () => {
+  const env = (vars: Record<string, string>) => (name: string) => vars[name];
+  assertEquals(adbCandidates(env({ HOME: "/home/u", ANDROID_HOME: "/opt/sdk" }), "linux"), [
+    "adb",
+    "/opt/sdk/platform-tools/adb",
+    "/home/u/Android/Sdk/platform-tools/adb",
+    "/usr/bin/adb",
+    "/usr/local/bin/adb",
+  ]);
+  assertEquals(adbCandidates(env({ HOME: "/Users/u" }), "darwin"), [
+    "adb",
+    "/Users/u/Library/Android/sdk/platform-tools/adb",
+    "/opt/homebrew/bin/adb",
+    "/usr/local/bin/adb",
+  ]);
+  assertEquals(adbCandidates(env({}), "windows"), ["adb"]);
 });

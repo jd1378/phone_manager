@@ -1,13 +1,11 @@
-// Runtime permissions for the app, shared by `deno task dev` and `deno task compile`.
-// Read/write stay broad because the backup folder is chosen at runtime and can be anywhere.
-const BROWSER_OPENER: Record<string, string> = { linux: "xdg-open", darwin: "open", windows: "explorer" };
-
-export function permissions(os: string): string[] {
-  return [
-    `--allow-run=adb,${BROWSER_OPENER[os] ?? "xdg-open"}`,
-    "--allow-net=127.0.0.1",
-    "--allow-read",
-    "--allow-write",
-    "--allow-env=HOME,USERPROFILE,APPDATA,LOCALAPPDATA,XDG_CONFIG_HOME,TMPDIR,TMP,TEMP",
-  ];
-}
+// Runtime permissions, shared by `deno task dev` (browser mode) and `deno task package` (desktop app).
+// Read/write stay broad because the backup folder is chosen at runtime and can be anywhere. Running
+// programs is broad too: adb may live in an SDK folder found at runtime (see adbCandidates), and with
+// unrestricted write access a narrower run permission would add little.
+export const PERMISSIONS = [
+  "--allow-run",
+  "--allow-net=127.0.0.1",
+  "--allow-read",
+  "--allow-write",
+  "--allow-env=HOME,USERPROFILE,APPDATA,LOCALAPPDATA,XDG_CONFIG_HOME,TMPDIR,TMP,TEMP,ANDROID_HOME,ANDROID_SDK_ROOT",
+];

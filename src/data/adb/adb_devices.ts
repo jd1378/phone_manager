@@ -55,7 +55,7 @@ export class AdbDevices implements DeviceRegistry {
 
   /** `adb track-devices` prints on every change; its output is only a trigger to re-list. */
   watch(onChange: () => void, signal: AbortSignal): void {
-    let timer: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const notify = () => {
       clearTimeout(timer);
       timer = setTimeout(onChange, WATCH_DEBOUNCE_MS);

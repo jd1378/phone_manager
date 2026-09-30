@@ -1,3 +1,4 @@
+import { join } from "@std/path";
 import { AppError } from "../../domain/errors.ts";
 
 export interface AdbResult {
@@ -9,9 +10,53 @@ export interface AdbResult {
 const SHELL_TIMEOUT_MS = 60_000;
 const decoder = new TextDecoder();
 
+/**
+ * Where to look for adb: PATH first, then the usual SDK and package manager folders. Apps started
+ * from a desktop menu do not get the shell's PATH (on macOS they never see Homebrew's).
+ */
+export function adbCandidates(env: (name: string) => string | undefined, os: string): string[] {
+  const home = os === "windows" ? env("USERPROFILE") : env("HOME");
+  const localAppData = env("LOCALAPPDATA");
+  const sdks = [
+    env("ANDROID_HOME"),
+    env("ANDROID_SDK_ROOT"),
+    os === "windows"
+      ? localAppData && join(localAppData, "Android", "Sdk")
+      : os === "darwin"
+      ? home && join(home, "Library", "Android", "sdk")
+      : home && join(home, "Android", "Sdk"),
+  ];
+  const tool = os === "windows" ? "adb.exe" : "adb";
+  const system = os === "darwin"
+    ? ["/opt/homebrew/bin/adb", "/usr/local/bin/adb"]
+    : os === "linux"
+    ? ["/usr/bin/adb", "/usr/local/bin/adb"]
+    : [];
+  const found = [
+    "adb",
+    ...sdks.filter((sdk): sdk is string => Boolean(sdk)).map((sdk) => join(sdk, "platform-tools", tool)),
+    ...system,
+  ];
+  return [...new Set(found)];
+}
+
 /** Thin wrapper over the adb binary. Arguments are passed as argv, never through a host shell. */
 export class Adb {
   constructor(readonly binary = "adb") {}
+
+  /** The first working adb from adbCandidates, or null. */
+  static async locate(env: (name: string) => string | undefined, os: string): Promise<Adb | null> {
+    for (const candidate of adbCandidates(env, os)) {
+      const adb = new Adb(candidate);
+      try {
+        await adb.version();
+        return adb;
+      } catch {
+        // not installed there
+      }
+    }
+    return null;
+  }
 
   /** Throws when adb is not installed or not runnable. */
   async version(): Promise<string> {

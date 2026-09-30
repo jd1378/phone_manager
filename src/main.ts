@@ -1,17 +1,6 @@
-import { join } from "@std/path";
-import { Adb } from "./data/adb/adb.ts";
-import { AdbDevices } from "./data/adb/adb_devices.ts";
-import { AdbLogcat } from "./data/adb/adb_logcat.ts";
-import { AdbPackages } from "./data/adb/adb_packages.ts";
-import { PhoneHelper } from "./data/adb/phone_helper.ts";
-import { FsDirectoryBrowser } from "./data/fs/directory_browser.ts";
-import { FsBackupLibrary } from "./data/fs/fs_library.ts";
-import { JsonSettingsStore } from "./data/fs/json_settings.ts";
-import { TempUploadStore } from "./data/fs/upload_store.ts";
-import { configDirectory, homeDirectory, openBrowser } from "./data/platform.ts";
-import { AppCatalog } from "./domain/use_cases/app_catalog.ts";
-import { Security } from "./presentation/http/security.ts";
-import { createApp } from "./presentation/http/server.ts";
+// Browser mode: serves the UI on 127.0.0.1 and opens it in the default browser.
+import { openBrowser } from "./data/platform.ts";
+import { AdbMissingError, startApp } from "./app.ts";
 
 const USAGE = `Usage: phone-manager [--port <number>] [--no-open]
 
@@ -46,72 +35,27 @@ async function main() {
     Deno.exit(2);
   }
 
-  const adb = new Adb();
-  let adbVersion: string;
+  let app;
   try {
-    adbVersion = await adb.version();
-  } catch {
-    console.error(
-      "adb was not found. Install Android SDK Platform-Tools and make sure `adb` is on your PATH:\n" +
-        "  https://developer.android.com/tools/releases/platform-tools",
-    );
+    app = await startApp(options.port);
+  } catch (error) {
+    if (!(error instanceof AdbMissingError)) throw error;
+    console.error(error.message);
     Deno.exit(1);
   }
-  await adb.run(["start-server"]);
 
-  const home = homeDirectory();
-  const settings = new JsonSettingsStore(join(configDirectory("phone-manager"), "settings.json"), {
-    backupDirectory: join(home, "phone-manager-backups"),
-    autoLoadMetadata: false,
-  });
-  const uploadsRoot = await Deno.makeTempDir({ prefix: "phone-manager-uploads-" });
-  const packages = new AdbPackages(adb, await PhoneHelper.load(adb));
-  const devices = new AdbDevices(adb);
-
-  const shutdown = new AbortController();
-  // The port is only known once listening, and the app needs it for its Host/Origin checks.
-  let handle = (_request: Request) => Promise.resolve(new Response("Starting", { status: 503 }));
-  const server = Deno.serve({
-    hostname: "127.0.0.1",
-    port: options.port,
-    signal: shutdown.signal,
-    onListen: () => {},
-  }, (request) => handle(request));
-
-  const port = server.addr.port;
-  const security = new Security(port);
-  const app = createApp(
-    {
-      devices,
-      packages,
-      logs: new AdbLogcat(adb),
-      library: new FsBackupLibrary(async () => (await settings.get()).backupDirectory),
-      settings,
-      uploads: new TempUploadStore(uploadsRoot),
-      directories: new FsDirectoryBrowser(home),
-      catalog: new AppCatalog(packages),
-      adbVersion,
-    },
-    security,
-    new URL("../dist/", import.meta.url),
-  );
-  handle = app.fetch;
-  devices.watch(() => app.broadcastDevices(), shutdown.signal);
-
-  const url = security.loginUrl(port);
-  console.log(`Phone Manager is running (${adbVersion}).\nOpen: ${url}\nPress Ctrl+C to stop.`);
-  if (options.open && !(await openBrowser(url))) {
+  console.log(`Phone Manager is running (${app.adbVersion}).\nOpen: ${app.loginUrl}\nPress Ctrl+C to stop.`);
+  if (options.open && !(await openBrowser(app.loginUrl))) {
     console.log("Could not open a browser; open the address above.");
   }
 
   const stop = async () => {
-    shutdown.abort();
-    await Deno.remove(uploadsRoot, { recursive: true }).catch(() => {});
+    await app.shutdown();
     Deno.exit(0);
   };
   Deno.addSignalListener("SIGINT", stop);
   if (Deno.build.os !== "windows") Deno.addSignalListener("SIGTERM", stop);
-  await server.finished;
+  await app.finished;
 }
 
 if (import.meta.main) await main();

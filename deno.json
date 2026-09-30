@@ -1,17 +1,19 @@
 {
+  "version": "0.1.0",
   "tasks": {
     "dev": "deno task build:web && deno run --allow-run --allow-read --allow-env scripts/dev.ts",
     "build:web": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build_web.ts",
     "build:helper": "deno run --allow-read --allow-write --allow-env --allow-run helper/build.ts",
-    "compile": "deno task build:web && deno run --allow-read --allow-write --allow-env --allow-run scripts/compile.ts",
     "test": "deno test --allow-read --allow-write --allow-env tests/",
-    "check": "deno check src helper scripts && deno lint && deno fmt --check"
+    "check": "deno check src helper scripts && deno lint && deno fmt --check",
+    "package": "deno run --allow-read --allow-write --allow-env --allow-run scripts/package.ts"
   },
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "lib": [
       "deno.ns",
+      "deno.desktop",
       "dom",
       "dom.iterable",
       "dom.asynciterable",
@@ -47,5 +49,42 @@
     "@std/path": "jsr:@std/path@^1.1.6",
     "@std/streams": "jsr:@std/streams@^1.2.0",
     "preact": "npm:preact@^10.29.8"
+  },
+  "desktop": {
+    "app": {
+      "name": "Phone Manager",
+      "identifier": "io.github.jd1378.phonemanager",
+      "icons": {
+        "linux": "./assets/icons/icon-512.png",
+        "windows": "./assets/icons/icon.ico",
+        "macos": [
+          {
+            "path": "./assets/icons/icon-16.png",
+            "size": 16
+          },
+          {
+            "path": "./assets/icons/icon-32.png",
+            "size": 32
+          },
+          {
+            "path": "./assets/icons/icon-64.png",
+            "size": 64
+          },
+          {
+            "path": "./assets/icons/icon-128.png",
+            "size": 128
+          },
+          {
+            "path": "./assets/icons/icon-256.png",
+            "size": 256
+          },
+          {
+            "path": "./assets/icons/icon-512.png",
+            "size": 512
+          }
+        ]
+      }
+    },
+    "backend": "webview"
   }
 }

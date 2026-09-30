@@ -22,7 +22,7 @@ export class EventHub {
   }
 
   subscribe(initial: [string, unknown][]): Response {
-    let heartbeat: number | undefined;
+    let heartbeat: ReturnType<typeof setTimeout> | undefined;
     let self: ReadableStreamDefaultController<Uint8Array>;
     const body = new ReadableStream<Uint8Array>({
       start: (controller) => {

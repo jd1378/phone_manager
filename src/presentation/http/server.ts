@@ -304,7 +304,7 @@ export function createApp(services: Services, security: Security, staticRoot: UR
     const body = new ReadableStream<Uint8Array>({
       async start(controller) {
         let batch: LogLine[] = [];
-        let timer: number | undefined;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         const flush = () => {
           timer = undefined;
           if (batch.length === 0) return;
