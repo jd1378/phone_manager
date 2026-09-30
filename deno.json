@@ -6,7 +6,7 @@
     "build:web": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build_web.ts",
     "build:helper": "deno run --allow-read --allow-write --allow-env --allow-run helper/build.ts",
     "test": "deno test --allow-read --allow-write --allow-env tests/",
-    "check": "deno check src helper scripts && deno lint && deno fmt --check",
+    "check": "deno check src helper scripts tests && deno lint && deno fmt --check",
     "package": "deno run --allow-read --allow-write --allow-env --allow-run scripts/package.ts"
   },
   "compilerOptions": {

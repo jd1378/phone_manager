@@ -1122,3 +1122,65 @@ progress {
     transition: none !important;
   }
 }
+
+/* ---- bloatware hints ---- */
+.debloat-recommended {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+.debloat-advanced {
+  background: var(--warn-soft);
+  border-color: transparent;
+  color: var(--warn);
+}
+.debloat-expert {
+  color: var(--muted);
+  border-style: dashed;
+}
+.debloat-unsafe {
+  background: var(--danger-soft);
+  border-color: transparent;
+  color: var(--danger);
+}
+.debloat-tracking {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.debloat-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.debloat-section h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+.debloat-section-unsafe {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.debloat-section-expert {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+.debloat-notes {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.hints-prompt {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+.confirm-body {
+  white-space: pre-line;
+}
+.debloat-often-preinstalled {
+  color: var(--muted);
+}

@@ -43,6 +43,7 @@ export class JsonSettingsStore implements SettingsStore {
         updated.backupDirectory = patch.backupDirectory;
       }
       if (patch.autoLoadMetadata !== undefined) updated.autoLoadMetadata = patch.autoLoadMetadata === true;
+      if (patch.bloatwareHints !== undefined) updated.bloatwareHints = patch.bloatwareHints === true;
       await Deno.mkdir(dirname(this.path), { recursive: true });
       const temp = join(dirname(this.path), `.settings-${crypto.randomUUID()}.json`);
       await Deno.writeTextFile(temp, JSON.stringify(updated, null, 2) + "\n", { mode: 0o600 });
@@ -63,5 +64,8 @@ function sanitize(stored: Partial<Settings>, defaults: Settings): Settings {
     autoLoadMetadata: typeof stored.autoLoadMetadata === "boolean"
       ? stored.autoLoadMetadata
       : defaults.autoLoadMetadata,
+    bloatwareHints: typeof stored.bloatwareHints === "boolean"
+      ? stored.bloatwareHints
+      : defaults.bloatwareHints,
   };
 }

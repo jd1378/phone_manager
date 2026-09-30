@@ -4,7 +4,8 @@ export type ErrorCode =
   | "device-unavailable"
   | "adb-failed"
   | "install-failed"
-  | "helper-failed";
+  | "helper-failed"
+  | "download-failed";
 
 export class AppError extends Error {
   constructor(readonly code: ErrorCode, message: string, readonly detail?: string) {

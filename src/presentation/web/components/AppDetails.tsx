@@ -15,6 +15,7 @@ import {
   user,
 } from "../state.ts";
 import { AppIcon } from "./AppIcon.tsx";
+import { DebloatSection } from "./DebloatSection.tsx";
 
 function Fact({ label, children }: { label: string; children: preact.ComponentChildren }) {
   return (
@@ -155,6 +156,7 @@ export function AppDetailsPanel({ app }: { app: App }) {
           )}
       </div>
 
+      <DebloatSection app={app} />
       {error && <p class="error">{error}</p>}
       <section class="details-section">
         <dl class="facts">

@@ -4,9 +4,10 @@ import { JsonSettingsStore } from "../src/data/fs/json_settings.ts";
 import type { AppAction } from "../src/domain/models.ts";
 import type { LogSource, UploadStore } from "../src/domain/ports.ts";
 import { AppCatalog } from "../src/domain/use_cases/app_catalog.ts";
+import { BloatwareHints } from "../src/domain/use_cases/bloatware_hints.ts";
 import { Security } from "../src/presentation/http/security.ts";
 import { createApp } from "../src/presentation/http/server.ts";
-import { fakeDevices, fakePackages, MemoryLibrary, summary } from "./fakes.ts";
+import { fakeDebloatSource, fakeDevices, fakePackages, MemoryLibrary, summary } from "./fakes.ts";
 
 const PORT = 4321;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
@@ -21,19 +22,22 @@ function setup() {
     },
   });
   const security = new Security(PORT);
+  const settings = new JsonSettingsStore("/nonexistent/settings.json", {
+    backupDirectory: "/tmp/b",
+    autoLoadMetadata: false,
+    bloatwareHints: false,
+  });
   const app = createApp(
     {
       devices: fakeDevices(),
       packages,
       logs: {} as LogSource,
       library: new MemoryLibrary(),
-      settings: new JsonSettingsStore("/nonexistent/settings.json", {
-        backupDirectory: "/tmp/b",
-        autoLoadMetadata: false,
-      }),
+      settings,
       uploads: {} as UploadStore,
       directories: new FsDirectoryBrowser("/tmp"),
       catalog: new AppCatalog(packages),
+      hints: new BloatwareHints(fakeDebloatSource(), settings),
       adbVersion: "test",
     },
     security,

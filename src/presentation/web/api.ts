@@ -1,3 +1,4 @@
+import type { DebloatStatus } from "../../domain/debloat.ts";
 import type { InstallGroup } from "../../domain/install_plan.ts";
 import type {
   App,
@@ -58,7 +59,16 @@ export interface AppsResponse {
 
 export const api = {
   state: () =>
-    request<{ devices: Device[]; settings: Settings; jobs: Job[]; adbVersion: string; home: string }>(
+    request<
+      {
+        devices: Device[];
+        settings: Settings;
+        jobs: Job[];
+        adbVersion: string;
+        home: string;
+        debloat: DebloatStatus;
+      }
+    >(
       "GET",
       "/api/state",
     ),
@@ -86,6 +96,7 @@ export const api = {
   library: () => request<LibraryEntry[]>("GET", "/api/library"),
   deleteBackup: (entry: LibraryPick) =>
     request("DELETE", `/api/library/${entry.packageName}/${entry.versionCode}`),
+  updateDebloat: () => request<DebloatStatus>("POST", "/api/debloat/update"),
   saveSettings: (patch: Partial<Settings>) => request<Settings>("PUT", "/api/settings", patch),
   directories: (path: string) =>
     request<DirectoryListing>("GET", `/api/fs/dirs?path=${encodeURIComponent(path)}`),

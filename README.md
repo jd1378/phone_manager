@@ -54,6 +54,8 @@ address does not work; use the printed link.
   key mismatches (for backups).
 - **Logcat**: live log of one app's processes, following restarts and keeping crash lines, filtered by level
   and text.
+- **Bloatware hints** (off until you turn them on): labels apps from a community debloat list and warns before
+  you remove anything the list considers risky. See [Bloatware hints](#bloatware-hints).
 - **Wi-Fi**: pair and connect to phones over wireless debugging.
 - Phones are picked up as they connect and disconnect.
 
@@ -66,6 +68,32 @@ as an app, has no more rights than `adb shell`, and exits once it has printed it
 
 It runs only when you load names and icons, open an app's details, or back up an app. The plain app list uses
 `pm` only. To remove it from a phone: `adb shell rm /data/local/tmp/phone-manager-helper-*.dex`.
+
+## Bloatware hints
+
+The labels come from the list maintained by
+[Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
+(UAD-ng), which covers about 5,000 preinstalled packages from phone makers, Google, carriers and AOSP. Apps
+that are not on the list get no label at all.
+
+| Label              | Meaning                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| Bloatware          | Safe to remove; nothing else depends on it.                                             |
+| Likely bloatware   | Usually safe to remove, but a feature it provides may go away.                          |
+| Often preinstalled | A bloatware or likely-bloatware app that you have as a regular app, so maybe by choice. |
+| Unsure             | Not clear-cut; removing it can break features or other apps.                            |
+| Needed             | Needed by the system; removing it can break the phone, up to a boot loop.               |
+| Tracking or ads    | The list's notes say it tracks you or shows ads ("Maybe tracking" when they hedge).     |
+
+The first five follow UAD-ng's own ratings (Recommended, Advanced, Expert, Unsafe). The tracking label is
+derived from the list's notes by keyword, per sentence, ignoring negations ("without ads") and tracking as a
+feature ("location tracking"); the details panel quotes the sentence it is based on. Uninstalling, disabling
+or clearing an app rated Unsure or Needed, or one other apps need, shows the list's warning first.
+
+The list is GPL-3.0 and this app is MIT, so it is not bundled: turning hints on downloads it from
+`raw.githubusercontent.com`, keeps a copy in the cache folder (`~/.cache/phone-manager`, `~/Library/Caches/`,
+`%LOCALAPPDATA%\phone-manager\cache`) so it works offline, and refreshes it weekly. That download is the app's
+only connection outside your computer.
 
 ## Backup folder layout
 

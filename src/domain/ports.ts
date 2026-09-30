@@ -1,3 +1,4 @@
+import type { DebloatList, DebloatSourceInfo } from "./debloat.ts";
 import type { InstallFailure } from "./install_failure.ts";
 import type {
   AppAction,
@@ -15,6 +16,14 @@ import type {
   Settings,
   Upload,
 } from "./models.ts";
+
+export interface DebloatSource {
+  readonly info: DebloatSourceInfo;
+  /** The saved copy, or null before the first download. */
+  cached(): Promise<DebloatList | null>;
+  /** Downloads and saves the latest list; the saved copy stays as it was on failure. */
+  download(): Promise<DebloatList>;
+}
 
 export interface DeviceRegistry {
   list(): Promise<Device[]>;

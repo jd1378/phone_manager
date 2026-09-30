@@ -1,5 +1,12 @@
+import type { DebloatEntry, DebloatList } from "../src/domain/debloat.ts";
 import type { AppDetails, AppMetadata, AppSummary, DeviceInfo, LibraryEntry } from "../src/domain/models.ts";
-import type { BackupLibrary, DeviceRegistry, PackageGateway, StagedBackup } from "../src/domain/ports.ts";
+import type {
+  BackupLibrary,
+  DebloatSource,
+  DeviceRegistry,
+  PackageGateway,
+  StagedBackup,
+} from "../src/domain/ports.ts";
 
 export function summary(packageName: string, patch: Partial<AppSummary> = {}): AppSummary {
   return {
@@ -135,4 +142,36 @@ export class MemoryLibrary implements BackupLibrary {
   remove() {
     return Promise.resolve();
   }
+}
+
+export function debloatEntry(patch: Partial<DebloatEntry> = {}): DebloatEntry {
+  return {
+    level: "recommended",
+    category: "oem",
+    description: "",
+    dependencies: [],
+    neededBy: [],
+    tracking: null,
+    ...patch,
+  };
+}
+
+export function debloatList(
+  entries: Record<string, DebloatEntry>,
+  updatedAt = new Date().toISOString(),
+): DebloatList {
+  return {
+    entries: new Map(Object.entries(entries)),
+    updatedAt,
+    source: { name: "Test list", url: "https://example.test", license: "GPL-3.0" },
+  };
+}
+
+export function fakeDebloatSource(overrides: Partial<DebloatSource> = {}): DebloatSource {
+  return {
+    info: { name: "Test list", url: "https://example.test", license: "GPL-3.0" },
+    cached: () => Promise.resolve(null),
+    download: () => Promise.reject(new Error("offline")),
+    ...overrides,
+  };
 }

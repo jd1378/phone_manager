@@ -18,13 +18,14 @@ export function ConfirmDialog() {
   };
   return (
     <Dialog title={request.title} onClose={() => answer(false)}>
-      <p class="dialog-body">{request.body}</p>
+      <p class="dialog-body confirm-body">{request.body}</p>
       <footer class="dialog-actions">
-        <button type="button" onClick={() => answer(false)}>Cancel</button>
+        {/* Enter must not confirm a destructive action by accident. */}
+        <button type="button" autofocus={request.danger} onClick={() => answer(false)}>Cancel</button>
         <button
           type="button"
           class={request.danger ? "danger" : "primary"}
-          autofocus
+          autofocus={!request.danger}
           onClick={() => answer(true)}
         >
           {request.confirmLabel}

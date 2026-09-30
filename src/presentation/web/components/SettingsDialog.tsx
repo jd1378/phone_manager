@@ -1,7 +1,20 @@
 import { useEffect, useState } from "preact/hooks";
 import type { DirectoryListing } from "../../../domain/ports.ts";
 import { api } from "../api.ts";
-import { adbVersion, describeError, dialog, home, saveSettings, settings, toast } from "../state.ts";
+import { formatDateTime } from "../format.ts";
+import {
+  adbVersion,
+  debloatStatus,
+  debloatUpdating,
+  describeError,
+  dialog,
+  home,
+  refreshApps,
+  saveSettings,
+  settings,
+  toast,
+  updateBloatwareList,
+} from "../state.ts";
 import { Dialog } from "./Dialog.tsx";
 
 /** Browsers cannot hand a folder path to the server, so the server lists folders for us. */
@@ -81,13 +94,27 @@ export function SettingsDialog() {
   const [folder, setFolder] = useState(current.backupDirectory);
   const [browsing, setBrowsing] = useState(false);
   const [autoLoad, setAutoLoad] = useState(current.autoLoadMetadata);
+  const [hints, setHints] = useState(current.bloatwareHints);
+  const status = debloatStatus.value;
   const close = () => (dialog.value = null);
   return (
     <Dialog title="Settings" onClose={close} wide>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await saveSettings({ backupDirectory: folder.trim(), autoLoadMetadata: autoLoad })) close();
+          const turningOn = hints && !current.bloatwareHints;
+          if (
+            !(await saveSettings({
+              backupDirectory: folder.trim(),
+              autoLoadMetadata: autoLoad,
+              bloatwareHints: hints,
+            }))
+          ) {
+            return;
+          }
+          close();
+          if (turningOn) updateBloatwareList();
+          else refreshApps();
         }}
       >
         <div class="dialog-body">
@@ -124,6 +151,31 @@ export function SettingsDialog() {
               </small>
             </span>
           </label>
+          <label class="check-row">
+            <input type="checkbox" checked={hints} onChange={(e) => setHints(e.currentTarget.checked)} />
+            <span>
+              Show bloatware hints
+              <small class="muted block">
+                Marks apps listed by {status?.source.name ?? "Universal Android Debloater"}{" "}
+                ({status?.source.license}) as bloatware, likely bloatware, unsure or needed, and warns before
+                removing risky ones. The list is downloaded from GitHub and refreshed weekly; apps not on it
+                get no label.
+              </small>
+            </span>
+          </label>
+          {current.bloatwareHints && status && (
+            <p class="field-row">
+              <span class="muted">
+                {status.updatedAt
+                  ? `List from ${formatDateTime(status.updatedAt)}, ${status.packages} packages.`
+                  : "List not downloaded yet."}
+                {status.error && ` Last update failed: ${status.error}`}
+              </span>
+              <button type="button" disabled={debloatUpdating.value} onClick={updateBloatwareList}>
+                {debloatUpdating.value ? "Updating…" : "Update now"}
+              </button>
+            </p>
+          )}
           <p class="muted">{adbVersion.value}</p>
         </div>
         <footer class="dialog-actions">

@@ -12,8 +12,9 @@ import type {
   UploadStore,
 } from "../../domain/ports.ts";
 import type { AppCatalog } from "../../domain/use_cases/app_catalog.ts";
+import type { BloatwareHints } from "../../domain/use_cases/bloatware_hints.ts";
 import { appLog } from "../../domain/use_cases/app_log.ts";
-import { backupApps } from "../../domain/use_cases/backup.ts";
+import { backupApps, errorMessage } from "../../domain/use_cases/backup.ts";
 import { isBatchAction, runBatch } from "../../domain/use_cases/batch.ts";
 import { installGroups, type InstallRequest, planInstall } from "../../domain/use_cases/install.ts";
 import {
@@ -38,6 +39,7 @@ export interface Services {
   uploads: UploadStore;
   directories: DirectoryBrowser;
   catalog: AppCatalog;
+  hints: BloatwareHints;
   adbVersion: string;
 }
 
@@ -127,6 +129,7 @@ function errorResponse(error: unknown): Response {
       "adb-failed": 502,
       "install-failed": 502,
       "helper-failed": 502,
+      "download-failed": 502,
     }[error.code];
     return json(
       { error: { code: error.code, message: error.message, detail: error.detail ?? null } },
@@ -146,7 +149,8 @@ function errorResponse(error: unknown): Response {
 export function createApp(services: Services, security: Security, staticRoot: URL) {
   const hub = new EventHub();
   const jobs = new JobRegistry(hub);
-  const { devices, packages, logs, library, settings, uploads, directories, catalog } = services;
+  const { devices, packages, logs, library, settings, uploads, directories, catalog, hints } = services;
+  hints.onUpdate(async () => hub.broadcast("debloat", await hints.status()));
   const routes: { method: string; pattern: URLPattern; handler: Handler }[] = [];
   const route = (method: string, pathname: string, handler: Handler) =>
     routes.push({ method, pattern: new URLPattern({ pathname }), handler });
@@ -175,6 +179,7 @@ export function createApp(services: Services, security: Security, staticRoot: UR
       jobs: jobs.list(),
       adbVersion: services.adbVersion,
       home: directories.home(),
+      debloat: await hints.status(),
     }));
   route(
     "GET",
@@ -360,8 +365,18 @@ export function createApp(services: Services, security: Security, staticRoot: UR
       await settings.update({
         ...(typeof body.backupDirectory === "string" ? { backupDirectory: body.backupDirectory } : {}),
         ...(typeof body.autoLoadMetadata === "boolean" ? { autoLoadMetadata: body.autoLoadMetadata } : {}),
+        ...(typeof body.bloatwareHints === "boolean" ? { bloatwareHints: body.bloatwareHints } : {}),
       }),
     );
+  });
+  route("GET", "/api/debloat", async () => json(await hints.status()));
+  route("POST", "/api/debloat/update", async () => {
+    try {
+      await hints.update();
+    } catch (error) {
+      throw new AppError("download-failed", `Could not download the bloatware list: ${errorMessage(error)}`);
+    }
+    return json(await hints.status());
   });
   route(
     "GET",

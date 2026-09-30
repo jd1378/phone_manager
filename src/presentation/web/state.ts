@@ -1,5 +1,7 @@
 import { batch, computed, effect, signal } from "@preact/signals";
-import { type AppFilter, DEFAULT_FILTER, queryApps } from "../../domain/app_query.ts";
+import { type AppFilter, DEFAULT_FILTER, displayName, queryApps } from "../../domain/app_query.ts";
+import { type DebloatStatus, isRiskyToRemove } from "../../domain/debloat.ts";
+import { removalWarning, VERDICT_TEXT } from "./debloat_text.ts";
 import type { App, AppAction, Device, DeviceInfo, LibraryEntry, Settings } from "../../domain/models.ts";
 import { api, ApiError, type InstallChoice, type Job, type LibraryPick, type PublicUpload } from "./api.ts";
 
@@ -37,6 +39,9 @@ export const metadataLoading = signal(false);
 export const filter = signal<AppFilter>(loadPref("filter", DEFAULT_FILTER));
 export const selection = signal<ReadonlySet<string>>(new Set());
 export const detailsPackage = signal<string | null>(null);
+
+export const debloatStatus = signal<DebloatStatus | null>(null);
+export const debloatUpdating = signal(false);
 
 export const library = signal<LibraryEntry[]>([]);
 export const libraryStatus = signal<"idle" | "loading" | "ready" | "error">("idle");
@@ -109,6 +114,7 @@ export async function bootstrap() {
     home.value = state.home;
     adbVersion.value = state.adbVersion;
     jobs.value = state.jobs;
+    debloatStatus.value = state.debloat;
     setDevices(state.devices);
   });
   refreshLibrary();
@@ -116,6 +122,10 @@ export async function bootstrap() {
   events.addEventListener("devices", (event) => setDevices(JSON.parse(event.data)));
   events.addEventListener("jobs", (event) => (jobs.value = JSON.parse(event.data)));
   events.addEventListener("job", (event) => onJob(JSON.parse(event.data)));
+  events.addEventListener("debloat", (event) => {
+    debloatStatus.value = JSON.parse(event.data);
+    refreshApps();
+  });
 }
 
 function setDevices(list: Device[]) {
@@ -239,18 +249,41 @@ const DESTRUCTIVE: Partial<Record<AppAction, { title: string; body: string; labe
   },
 };
 
+function nameOf(packageName: string): string {
+  const app = apps.value.find((a) => a.packageName === packageName);
+  return app ? displayName(app) : packageName;
+}
+
+/** "Settings (needed), Keyboard (unsure)" for the selected packages the bloatware list calls risky. */
+function riskySummary(packages: string[]): string | null {
+  const risky = packages
+    .map((name) => apps.value.find((a) => a.packageName === name))
+    .filter((app): app is App => app !== undefined && isRiskyToRemove(app.debloat));
+  if (risky.length === 0) return null;
+  const listed = risky.slice(0, 8).map((app) =>
+    `${displayName(app)} (${
+      app.debloat!.level === "unsafe" || app.debloat!.level === "expert"
+        ? VERDICT_TEXT[app.debloat!.level].badge.toLowerCase()
+        : "other apps need it"
+    })`
+  ).join(", ");
+  const more = risky.length > 8 ? ` and ${risky.length - 8} more` : "";
+  return `Warning: according to the bloatware list, removing these can break your phone or other apps: ${listed}${more}.`;
+}
+
 export async function runAction(app: App, action: AppAction): Promise<boolean> {
   const target = serial.value;
   if (!target) return false;
   const danger = DESTRUCTIVE[action];
   const name = app.metadata?.label ?? app.packageName;
+  const warning = removalWarning(app, action, nameOf);
   if (
     danger &&
     !(await confirm({
       title: `${danger.title} ${name}?`,
-      body: danger.body,
-      confirmLabel: danger.label,
-      danger: action !== "disable",
+      body: warning ? `${warning}\n\n${danger.body}` : danger.body,
+      confirmLabel: warning ? `${danger.label} anyway` : danger.label,
+      danger: action !== "disable" || warning !== null,
     }))
   ) {
     return false;
@@ -277,21 +310,24 @@ export async function batchAction(
   const target = serial.value;
   if (!target || packages.length === 0) return;
   const count = `${packages.length} app${packages.length === 1 ? "" : "s"}`;
+  const risk = action === "uninstall" || action === "disable" ? riskySummary(packages) : null;
+  const withRisk = (body: string) => risk ? `${risk}\n\n${body}` : body;
   if (
     action === "uninstall" && !(await confirm({
       title: `Uninstall ${count}?`,
-      body:
+      body: withRisk(
         "The apps and their data are removed for this user. System apps can be restored from 'Uninstalled, data kept'.",
-      confirmLabel: "Uninstall",
+      ),
+      confirmLabel: risk ? "Uninstall anyway" : "Uninstall",
       danger: true,
     }))
   ) return;
   if (
     action === "disable" && !(await confirm({
       title: `Disable ${count}?`,
-      body: "Disabled apps stop running until you enable them again.",
-      confirmLabel: "Disable",
-      danger: false,
+      body: withRisk("Disabled apps stop running until you enable them again."),
+      confirmLabel: risk ? "Disable anyway" : "Disable",
+      danger: risk !== null,
     }))
   ) return;
   try {
@@ -391,6 +427,23 @@ export async function deleteBackups(entries: LibraryEntry[]) {
     }
   }
   refreshLibrary();
+}
+
+export async function updateBloatwareList(): Promise<void> {
+  debloatUpdating.value = true;
+  try {
+    debloatStatus.value = await api.updateDebloat();
+    await refreshApps();
+  } catch (error) {
+    toast(describeError(error), "error");
+  } finally {
+    debloatUpdating.value = false;
+  }
+}
+
+/** Turns hints on and fetches the list right away, so the badges appear without waiting. */
+export async function enableBloatwareHints(): Promise<void> {
+  if (await saveSettings({ bloatwareHints: true })) await updateBloatwareList();
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<boolean> {

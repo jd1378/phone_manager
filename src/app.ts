@@ -9,8 +9,10 @@ import { FsDirectoryBrowser } from "./data/fs/directory_browser.ts";
 import { FsBackupLibrary } from "./data/fs/fs_library.ts";
 import { JsonSettingsStore } from "./data/fs/json_settings.ts";
 import { TempUploadStore } from "./data/fs/upload_store.ts";
-import { configDirectory, homeDirectory } from "./data/platform.ts";
+import { UadDebloatSource } from "./data/debloat/uad_list.ts";
+import { cacheDirectory, configDirectory, homeDirectory } from "./data/platform.ts";
 import { AppCatalog } from "./domain/use_cases/app_catalog.ts";
+import { BloatwareHints } from "./domain/use_cases/bloatware_hints.ts";
 import { Security } from "./presentation/http/security.ts";
 import { createApp } from "./presentation/http/server.ts";
 
@@ -55,7 +57,9 @@ export async function startApp(port: number): Promise<RunningApp> {
   const settings = new JsonSettingsStore(join(configDirectory("phone-manager"), "settings.json"), {
     backupDirectory: join(home, "phone-manager-backups"),
     autoLoadMetadata: false,
+    bloatwareHints: false,
   });
+  const hints = new BloatwareHints(new UadDebloatSource(cacheDirectory("phone-manager")), settings);
   const uploadsRoot = await Deno.makeTempDir({ prefix: "phone-manager-uploads-" });
   const packages = new AdbPackages(adb, await PhoneHelper.load(adb));
   const devices = new AdbDevices(adb);
@@ -78,7 +82,8 @@ export async function startApp(port: number): Promise<RunningApp> {
       settings,
       uploads: new TempUploadStore(uploadsRoot),
       directories: new FsDirectoryBrowser(home),
-      catalog: new AppCatalog(packages),
+      catalog: new AppCatalog(packages, hints),
+      hints,
       adbVersion,
     },
     security,

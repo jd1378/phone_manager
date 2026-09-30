@@ -1,3 +1,4 @@
+import type { DebloatList } from "../debloat.ts";
 import type { App, AppSizes } from "../models.ts";
 import type { HelperApp, PackageGateway } from "../ports.ts";
 
@@ -11,14 +12,22 @@ export class AppCatalog {
   readonly #metadata = new Map<string, Map<string, HelperApp>>();
   readonly #sizes = new Map<string, Map<string, AppSizes>>();
 
-  constructor(private readonly packages: PackageGateway) {}
+  constructor(
+    private readonly packages: PackageGateway,
+    private readonly hints: { current(): Promise<DebloatList | null> } = {
+      current: () => Promise.resolve(null),
+    },
+  ) {}
 
   hasMetadata(serial: string): boolean {
     return this.#metadata.has(serial);
   }
 
   async list(serial: string, user: number): Promise<App[]> {
-    const summaries = await this.packages.list(serial, user);
+    const [summaries, debloat] = await Promise.all([
+      this.packages.list(serial, user),
+      this.hints.current().catch(() => null),
+    ]);
     const metadata = this.#metadata.get(serial);
     const sizes = this.#sizes.get(`${serial}/${user}`);
     return summaries.map((summary) => {
@@ -27,6 +36,7 @@ export class AppCatalog {
         ...summary,
         metadata: known && known.versionCode === summary.versionCode ? known.metadata : null,
         sizes: sizes?.get(summary.packageName) ?? null,
+        debloat: debloat?.entries.get(summary.packageName) ?? null,
       };
     });
   }

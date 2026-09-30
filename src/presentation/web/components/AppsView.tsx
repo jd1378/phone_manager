@@ -5,6 +5,7 @@ import {
   type AppKind,
   type AppSort,
   type AppState,
+  type DebloatFilter,
   displayName,
   filterOptions,
   installerName,
@@ -12,7 +13,9 @@ import {
   type TriState,
 } from "../../../domain/app_query.ts";
 import { appsToCsv, appsToJson } from "../../../domain/export.ts";
+import { BLOAT_VERDICTS, bloatVerdict } from "../../../domain/debloat.ts";
 import type { App } from "../../../domain/models.ts";
+import { trackingBadge, VERDICT_TEXT } from "../debloat_text.ts";
 import { formatBytes, formatDate, plural } from "../format.ts";
 import {
   apps,
@@ -21,7 +24,10 @@ import {
   backup,
   batchAction,
   currentDevice,
+  debloatStatus,
+  debloatUpdating,
   detailsPackage,
+  enableBloatwareHints,
   filter,
   loadMetadata,
   metadataLoaded,
@@ -29,6 +35,8 @@ import {
   refreshApps,
   selection,
   serial,
+  settings,
+  updateBloatwareList,
   updateFilter,
   visibleApps,
 } from "../state.ts";
@@ -115,6 +123,22 @@ function Filters() {
         >
           <option value="*">Anywhere</option>
           {options.installers.map((i) => <option key={i ?? ""} value={i ?? ""}>{installerName(i)}</option>)}
+        </select>
+      </label>
+      <label class="filter-select">
+        <span>Bloatware</span>
+        <select
+          value={f.debloat}
+          disabled={!settings.value?.bloatwareHints}
+          title={settings.value?.bloatwareHints ? undefined : "Turn on bloatware hints in Settings"}
+          onChange={(e) => updateFilter({ debloat: e.currentTarget.value as DebloatFilter })}
+        >
+          <option value="any">Any</option>
+          <option value="listed">On the bloatware list</option>
+          {BLOAT_VERDICTS.map((verdict) => (
+            <option key={verdict} value={verdict}>{VERDICT_TEXT[verdict].badge}</option>
+          ))}
+          <option value="tracking">Tracking or ads</option>
         </select>
       </label>
       <div class="filter-group">
@@ -233,8 +257,36 @@ function Toolbar({ list }: { list: App[] }) {
   );
 }
 
+/** Offers bloatware hints until they are on; shows download progress and failures after that. */
+function HintsPrompt() {
+  const status = debloatStatus.value;
+  if (debloatUpdating.value) return <span class="muted">Downloading the bloatware list…</span>;
+  if (!settings.value?.bloatwareHints) {
+    return (
+      <span class="hints-prompt">
+        <button type="button" class="link" onClick={enableBloatwareHints}>
+          Show which apps are bloatware
+        </button>
+        <span class="muted">
+          (uses the community list from Universal Android Debloater, downloaded from GitHub)
+        </span>
+      </span>
+    );
+  }
+  if (status && status.packages === 0) {
+    return (
+      <span class="error">
+        The bloatware list is not downloaded yet{status.error ? `: ${status.error}` : ""}.{" "}
+        <button type="button" class="link" onClick={updateBloatwareList}>Try again</button>
+      </span>
+    );
+  }
+  return null;
+}
+
 function Badges({ app }: { app: App }) {
   const meta = app.metadata;
+  const verdict = bloatVerdict(app.debloat, app.system);
   return (
     <span class="badges">
       {!app.installed && <span class="badge badge-warn">uninstalled</span>}
@@ -242,6 +294,16 @@ function Badges({ app }: { app: App }) {
       {app.system && <span class="badge">{meta?.updatedSystem ? "system, updated" : "system"}</span>}
       {meta && meta.splitCount > 0 && <span class="badge">{meta.splitCount + 1} APKs</span>}
       {meta?.debuggable && <span class="badge badge-accent">debuggable</span>}
+      {verdict && (
+        <span class={`badge debloat-${verdict}`} title={VERDICT_TEXT[verdict].summary}>
+          {VERDICT_TEXT[verdict].badge}
+        </span>
+      )}
+      {app.debloat?.tracking && (
+        <span class="badge debloat-tracking" title={app.debloat.tracking.evidence}>
+          {trackingBadge(app.debloat)}
+        </span>
+      )}
     </span>
   );
 }
@@ -348,6 +410,7 @@ export function AppsView() {
                   Names, icons and sizes come from a small helper that runs on the phone.
                 </span>
               )}
+              <HintsPrompt />
             </div>
             {list.length === 0
               ? (
@@ -393,6 +456,7 @@ function resetFilter(current: AppFilter): Partial<AppFilter> {
     debuggable: "any",
     launchable: "any",
     grantedPermission: null,
+    debloat: "any",
     sort: current.sort,
     descending: current.descending,
   };

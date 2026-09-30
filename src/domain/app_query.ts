@@ -1,8 +1,11 @@
+import { type BloatVerdict, bloatVerdict } from "./debloat.ts";
 import type { App } from "./models.ts";
 
 export type AppKind = "all" | "user" | "system" | "updated-system";
 export type AppState = "all" | "enabled" | "disabled" | "not-installed";
 export type TriState = "any" | "yes" | "no";
+/** A bloatware verdict, any listed package, or listed packages said to track or show ads. */
+export type DebloatFilter = "any" | BloatVerdict | "listed" | "tracking";
 export type AppSort = "name" | "package" | "installed" | "updated" | "size" | "target-sdk";
 
 export interface AppFilter {
@@ -16,6 +19,7 @@ export interface AppFilter {
   launchable: TriState;
   /** Only apps holding this runtime permission. */
   grantedPermission: string | null;
+  debloat: DebloatFilter;
   sort: AppSort;
   descending: boolean;
 }
@@ -29,6 +33,7 @@ export const DEFAULT_FILTER: AppFilter = {
   debuggable: "any",
   launchable: "any",
   grantedPermission: null,
+  debloat: "any",
   sort: "name",
   descending: false,
 };
@@ -112,6 +117,17 @@ export function matchesFilter(app: App, filter: AppFilter): boolean {
     filter.grantedPermission !== null && !meta?.grantedRuntimePermissions.includes(filter.grantedPermission)
   ) {
     return false;
+  }
+  if (filter.debloat !== "any") {
+    const entry = app.debloat;
+    if (!entry) return false;
+    if (filter.debloat === "tracking" && !entry.tracking) return false;
+    if (
+      filter.debloat !== "tracking" && filter.debloat !== "listed" &&
+      bloatVerdict(entry, app.system) !== filter.debloat
+    ) {
+      return false;
+    }
   }
   const terms = filter.query.toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) return true;

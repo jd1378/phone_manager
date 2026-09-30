@@ -1,3 +1,5 @@
+import type { DebloatEntry } from "./debloat.ts";
+
 export type DeviceState =
   | "device"
   | "unauthorized"
@@ -84,6 +86,8 @@ export interface AppSizes {
 export interface App extends AppSummary {
   metadata: AppMetadata | null;
   sizes: AppSizes | null;
+  /** Null when bloatware hints are off or the package is not on the list. */
+  debloat: DebloatEntry | null;
 }
 
 export interface AppPermission {
@@ -174,6 +178,7 @@ export interface InstallOptions {
 export interface Settings {
   backupDirectory: string;
   autoLoadMetadata: boolean;
+  bloatwareHints: boolean;
 }
 
 export interface LogLine {

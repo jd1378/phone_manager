@@ -185,16 +185,21 @@ Deno.test("settings: defaults, validation, persistence", async () => {
   const dir = await Deno.makeTempDir();
   try {
     const path = join(dir, "config", "settings.json");
-    const defaults = { backupDirectory: join(dir, "backups"), autoLoadMetadata: false };
+    const defaults = {
+      backupDirectory: join(dir, "backups"),
+      autoLoadMetadata: false,
+      bloatwareHints: false,
+    };
     const store = new JsonSettingsStore(path, defaults);
     assertEquals(await store.get(), defaults);
     await assertRejects(() => store.update({ backupDirectory: "relative/path" }), AppError);
     const target = join(dir, "new", "backups");
-    await store.update({ backupDirectory: target, autoLoadMetadata: true });
+    await store.update({ backupDirectory: target, autoLoadMetadata: true, bloatwareHints: true });
     assert((await Deno.stat(target)).isDirectory);
     assertEquals(await new JsonSettingsStore(path, defaults).get(), {
       backupDirectory: target,
       autoLoadMetadata: true,
+      bloatwareHints: true,
     });
     await Deno.writeTextFile(path, "{not json");
     assertEquals(await new JsonSettingsStore(path, defaults).get(), defaults);

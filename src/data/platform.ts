@@ -17,6 +17,21 @@ export function configDirectory(appName: string): string {
   }
 }
 
+export function cacheDirectory(appName: string): string {
+  switch (Deno.build.os) {
+    case "windows":
+      return join(
+        Deno.env.get("LOCALAPPDATA") ?? join(homeDirectory(), "AppData", "Local"),
+        appName,
+        "cache",
+      );
+    case "darwin":
+      return join(homeDirectory(), "Library", "Caches", appName);
+    default:
+      return join(Deno.env.get("XDG_CACHE_HOME") || join(homeDirectory(), ".cache"), appName);
+  }
+}
+
 /** Opens a URL in the default browser; failures are reported, not thrown. */
 export async function openBrowser(url: string): Promise<boolean> {
   const [command, args] = Deno.build.os === "windows"

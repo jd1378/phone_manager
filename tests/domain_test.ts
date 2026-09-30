@@ -63,6 +63,7 @@ const app = (name: string, patch: Partial<App> = {}): App => ({
   ...summary(name),
   metadata: null,
   sizes: null,
+  debloat: null,
   ...patch,
 });
 
