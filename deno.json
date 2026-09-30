@@ -1,0 +1,51 @@
+{
+  "tasks": {
+    "dev": "deno task build:web && deno run --allow-run --allow-read --allow-env scripts/dev.ts",
+    "build:web": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build_web.ts",
+    "build:helper": "deno run --allow-read --allow-write --allow-env --allow-run helper/build.ts",
+    "compile": "deno task build:web && deno run --allow-read --allow-write --allow-env --allow-run scripts/compile.ts",
+    "test": "deno test --allow-read --allow-write --allow-env tests/",
+    "check": "deno check src helper scripts && deno lint && deno fmt --check"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": [
+      "deno.ns",
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable",
+      "esnext"
+    ],
+    "strict": true
+  },
+  "fmt": {
+    "lineWidth": 110,
+    "exclude": [
+      "dist/",
+      "build/",
+      "call_recorder/"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "dist/",
+      "build/",
+      "call_recorder/"
+    ]
+  },
+  "exclude": [
+    "dist/",
+    "build/",
+    "call_recorder/"
+  ],
+  "imports": {
+    "@preact/signals": "npm:@preact/signals@^2.11.2",
+    "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@std/crypto": "jsr:@std/crypto@^1.1.0",
+    "@std/encoding": "jsr:@std/encoding@^1.0.11",
+    "@std/path": "jsr:@std/path@^1.1.6",
+    "@std/streams": "jsr:@std/streams@^1.2.0",
+    "preact": "npm:preact@^10.29.8"
+  }
+}
