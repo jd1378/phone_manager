@@ -135,3 +135,7 @@ Layout (clean architecture: `domain` depends on nothing, `data` and `presentatio
 - `src/presentation/web`: the Preact UI, bundled into `dist/` by `deno task build:web`.
 - `helper/`: the Java source of the phone helper.
 - `scripts/`: dev server, web bundling and packaging; `assets/icons/`: app icons.
+
+## License
+
+[MIT](LICENSE)
